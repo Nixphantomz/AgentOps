@@ -49,6 +49,22 @@ export function getModelContext() {
   return document.modelContext || navigator.modelContext || null;
 }
 
+/**
+ * List every currently registered tool. This is what a real agent's
+ * "discovery" step would call before deciding what to execute — we call it
+ * ourselves too, so the DISCOVER phase in the mission pipeline is a genuine
+ * WebMCP call, not a hardcoded list.
+ */
+export function listRegisteredTools() {
+  const mc = getModelContext();
+  if (!mc || typeof mc.getTools !== "function") return [];
+  try {
+    return mc.getTools();
+  } catch {
+    return [];
+  }
+}
+
 function slug(tool) {
   return tool.replace(/\./g, "-");
 }

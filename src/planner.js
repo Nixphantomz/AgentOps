@@ -32,6 +32,13 @@ Given a user's goal, output a JSON object with a "steps" array (4-7 steps) descr
   "detail": "One sentence of realistic detail about what this step does or finds."
 }
 
+If any step searches for or books flights, ALSO include a top-level "flightSearch" object in your response (sibling of "steps", not inside it):
+{
+  "origin": "3-letter IATA airport code — assume JFK if the user didn't specify a departure city",
+  "destination": "3-letter IATA airport code for the destination city the user mentioned"
+}
+Only include "flightSearch" when the goal genuinely involves a flight. Get the destination code right — this is used to make a real flight search, so a wrong or invented code is worse than omitting the field.
+
 Category guide:
 - search/compare/read/draft: safe, low-risk actions (should be most of your steps)
 - booking/purchase: only when the goal genuinely requires buying or reserving something
@@ -64,16 +71,29 @@ function sanitizeSteps(rawSteps) {
   return steps.length ? steps : null;
 }
 
+function sanitizeFlightSearch(fs) {
+  if (!fs || typeof fs !== "object") return undefined;
+  const iata = /^[A-Z]{3}$/;
+  const origin = typeof fs.origin === "string" ? fs.origin.trim().toUpperCase() : "";
+  const destination = typeof fs.destination === "string" ? fs.destination.trim().toUpperCase() : "";
+  if (!iata.test(origin) || !iata.test(destination)) return undefined;
+  return { origin, destination };
+}
+
 /**
  * @param goal   The user's free-text mission goal.
- * @returns {Promise<{steps: object[]}|null>} null means "use the template fallback".
+ * @returns {Promise<{steps: object[], flightSearch?: {origin, destination}}|null>}
+ *          null means "use the template fallback".
  */
 export async function planMission(goal) {
   const baseURL = (import.meta.env.VITE_LLM_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "");
   const apiKey = import.meta.env.VITE_LLM_API_KEY;
-  const model = import.meta.env.VITE_LLM_MODEL || "llama-3.3-70b-versatile";
+  const model = import.meta.env.VITE_LLM_MODEL || "openai/gpt-oss-120b";
 
-  if (!apiKey) return null; // no key configured — caller falls back to a template
+  if (!apiKey) {
+    console.info("[planner] No VITE_LLM_API_KEY configured — using a template instead of AI planning. See .env.example.");
+    return null;
+  }
 
   try {
     const res = await fetch(`${baseURL}/chat/completions`, {
@@ -94,17 +114,26 @@ export async function planMission(goal) {
     });
 
     if (!res.ok) {
-      console.warn(`[planner] LLM request failed (${res.status}) — falling back to template.`);
+      const body = await res.text().catch(() => "");
+      console.warn(`[planner] LLM request failed (${res.status}) — falling back to template.`, body.slice(0, 300));
       return null;
     }
 
     const data = await res.json();
     const text = data?.choices?.[0]?.message?.content;
-    if (!text) return null;
+    if (!text) {
+      console.warn("[planner] LLM response had no content — falling back to template.");
+      return null;
+    }
 
     const parsed = JSON.parse(text);
     const steps = sanitizeSteps(parsed.steps);
-    return steps ? { steps } : null;
+    if (!steps) {
+      console.warn("[planner] LLM response had no usable steps — falling back to template.");
+      return null;
+    }
+    const flightSearch = sanitizeFlightSearch(parsed.flightSearch);
+    return { steps, ...(flightSearch ? { flightSearch } : {}) };
   } catch (err) {
     console.warn("[planner] LLM planning failed — falling back to template:", err);
     return null;
