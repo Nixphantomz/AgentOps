@@ -28,7 +28,7 @@ Given a user's goal, output a JSON object with a "steps" array (4-7 steps) descr
   "tool": "webmcp.<domain>.<action>",   // dot-namespaced, e.g. "webmcp.flights.search"
   "label": "Human-readable action",      // e.g. "Search flights JFK to CDG"
   "category": one of ${JSON.stringify(CATEGORIES)},
-  "amount": number in USD (ONLY include this field if the step involves spending or moving money),
+  "amount": number in USD — REQUIRED whenever the step spends money, places an order, or moves funds (ordering food, buying a product, booking travel, subscribing, transferring money). Invent a realistic price if the user didn't specify one. Omit this field entirely for steps that don't involve money.
   "detail": "Concrete, specific result — invent plausible real-sounding names and exact prices. For a search/compare step: name 2-4 specific options with prices (e.g. 'Hotel Lumière $160/night, Le Marais Inn $145/night — Hotel Lumière selected'). For a booking/purchase step: name the specific chosen option and its exact price. Never write vague filler like 'found good options' — always include invented names and numbers."
 }
 
