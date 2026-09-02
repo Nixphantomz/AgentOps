@@ -29,7 +29,7 @@ Given a user's goal, output a JSON object with a "steps" array (4-7 steps) descr
   "label": "Human-readable action",      // e.g. "Search flights JFK to CDG"
   "category": one of ${JSON.stringify(CATEGORIES)},
   "amount": number in USD (ONLY include this field if the step involves spending or moving money),
-  "detail": "One sentence of realistic detail about what this step does or finds."
+  "detail": "Concrete, specific result — invent plausible real-sounding names and exact prices. For a search/compare step: name 2-4 specific options with prices (e.g. 'Hotel Lumière $160/night, Le Marais Inn $145/night — Hotel Lumière selected'). For a booking/purchase step: name the specific chosen option and its exact price. Never write vague filler like 'found good options' — always include invented names and numbers."
 }
 
 If any step searches for or books flights, ALSO include a top-level "flightSearch" object in your response (sibling of "steps", not inside it):
